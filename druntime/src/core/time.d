@@ -79,6 +79,11 @@ else version (Posix)
 import core.sys.posix.time;
 import core.sys.posix.sys.time;
 }
+else version (WebAssembly)
+{
+    pragma(msg, "wasm time.d selected");
+    import core.sys.webassembly.time;
+}
 
 version (OSX)
     version = Darwin;

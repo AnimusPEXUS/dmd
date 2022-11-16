@@ -19,6 +19,8 @@ version (Posix)
     public import core.sys.posix.stdc.time;
 else version (Windows)
     public import core.sys.windows.stdc.time;
+else version (WebAssembly)
+    public import core.sys.webassembly.stdc.time;
 else
     static assert(0, "unsupported system");
 
