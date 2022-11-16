@@ -936,7 +936,7 @@ extern (C++) abstract class Type : ASTNode
         else
         {
             // If `typeSemantic` succeeded, there may have been deprecations that
-            // were gagged due the the `startGagging` above.  Run again to display
+            // were gagged due the `startGagging` above.  Run again to display
             // those deprecations.  https://issues.dlang.org/show_bug.cgi?id=19107
             if (global.gaggedWarnings > 0)
                 typeSemantic(tcopy, loc, sc);
@@ -2488,6 +2488,16 @@ extern (C++) abstract class Type : ASTNode
         return false;
     }
 
+    /*************************************
+     * Detect if this is an unsafe type because of the presence of `@system` members
+     * Returns:
+     *  true if so
+     */
+    bool hasSystemFields()
+    {
+        return false;
+    }
+
     /***************************************
      * Returns: true if type has any invariants
      */
@@ -3821,6 +3831,16 @@ extern (C++) final class TypeSArray : TypeArray
             return next.hasPointers();
     }
 
+    override bool hasSystemFields()
+    {
+        return next.hasSystemFields();
+    }
+
+    override bool hasVoidInitPointers()
+    {
+        return next.hasVoidInitPointers();
+    }
+
     override bool hasInvariant()
     {
         return next.hasInvariant();
@@ -4536,7 +4556,7 @@ extern (C++) final class TypeFunction : TypeNext
         Parameters* params = parameterList.parameters;
         if (mod & MODFlags.wild)
             params = parameterList.parameters.copy();
-        for (size_t i = 0; i < params.dim; i++)
+        for (size_t i = 0; i < params.length; i++)
         {
             Parameter p = (*params)[i];
             Type t = p.type.substWildTo(m);
@@ -4666,7 +4686,7 @@ extern (C++) final class TypeFunction : TypeNext
         if (parameterList.varargs == VarArg.none && nparams > nargs && !parameterList[nargs].defaultArg)
         {
             OutBuffer buf;
-            buf.printf("too few arguments, expected `%d`, got `%d`", cast(int)nparams, cast(int)nargs);
+            buf.printf("too few arguments, expected %d, got %d", cast(int)nparams, cast(int)nargs);
             if (pMessage)
                 *pMessage = buf.extractChars();
             return MATCH.nomatch;
@@ -5088,8 +5108,8 @@ extern (C++) abstract class TypeQualified : Type
     final void syntaxCopyHelper(TypeQualified t)
     {
         //printf("TypeQualified::syntaxCopyHelper(%s) %s\n", t.toChars(), toChars());
-        idents.setDim(t.idents.dim);
-        for (size_t i = 0; i < idents.dim; i++)
+        idents.setDim(t.idents.length);
+        for (size_t i = 0; i < idents.length; i++)
         {
             RootObject id = t.idents[i];
             with (DYNCAST) final switch (id.dyncast())
@@ -5231,7 +5251,7 @@ extern (C++) final class TypeInstance : TypeQualified
 
     override TypeInstance syntaxCopy()
     {
-        //printf("TypeInstance::syntaxCopy() %s, %d\n", toChars(), idents.dim);
+        //printf("TypeInstance::syntaxCopy() %s, %d\n", toChars(), idents.length);
         auto t = new TypeInstance(loc, tempinst.syntaxCopy(null));
         t.syntaxCopyHelper(this);
         t.mod = mod;
@@ -5412,7 +5432,7 @@ extern (C++) final class TypeStruct : Type
 
         auto structelems = new Expressions(sym.nonHiddenFields());
         uint offset = 0;
-        foreach (j; 0 .. structelems.dim)
+        foreach (j; 0 .. structelems.length)
         {
             VarDeclaration vd = sym.fields[j];
             Expression e;
@@ -5467,7 +5487,7 @@ extern (C++) final class TypeStruct : Type
         /* If any of the fields are const or immutable,
          * then one cannot assign this struct.
          */
-        for (size_t i = 0; i < sym.fields.dim; i++)
+        for (size_t i = 0; i < sym.fields.length; i++)
         {
             VarDeclaration v = sym.fields[i];
             //printf("%s [%d] v = (%s) %s, v.offset = %d, v.parent = %s\n", sym.toChars(), i, v.kind(), v.toChars(), v.offset, v.parent.kind());
@@ -5521,7 +5541,7 @@ extern (C++) final class TypeStruct : Type
         if (sym.isNested())
             return true;
 
-        for (size_t i = 0; i < sym.fields.dim; i++)
+        for (size_t i = 0; i < sym.fields.length; i++)
         {
             VarDeclaration v = sym.fields[i];
             if (!v.isDataseg() && v.type.needsNested())
@@ -5532,52 +5552,32 @@ extern (C++) final class TypeStruct : Type
 
     override bool hasPointers()
     {
-        // Probably should cache this information in sym rather than recompute
-        StructDeclaration s = sym;
-
         if (sym.members && !sym.determineFields() && sym.type != Type.terror)
             error(sym.loc, "no size because of forward references");
 
-        foreach (VarDeclaration v; s.fields)
-        {
-            if (v.storage_class & STC.ref_ || v.hasPointers())
-                return true;
-        }
-        return false;
+        sym.determineTypeProperties();
+        return sym.hasPointerField;
     }
 
     override bool hasVoidInitPointers()
     {
-        // Probably should cache this information in sym rather than recompute
-        StructDeclaration s = sym;
-
         sym.size(Loc.initial); // give error for forward references
-        foreach (VarDeclaration v; s.fields)
-        {
-            if (v._init && v._init.isVoidInitializer() && v.type.hasPointers())
-                return true;
-            if (!v._init && v.type.hasVoidInitPointers())
-                return true;
-        }
-        return false;
+        sym.determineTypeProperties();
+        return sym.hasVoidInitPointers;
+    }
+
+    override bool hasSystemFields()
+    {
+        sym.size(Loc.initial); // give error for forward references
+        sym.determineTypeProperties();
+        return sym.hasSystemFields;
     }
 
     override bool hasInvariant()
     {
-        // Probably should cache this information in sym rather than recompute
-        StructDeclaration s = sym;
-
         sym.size(Loc.initial); // give error for forward references
-
-        if (s.hasInvariant())
-            return true;
-
-        foreach (VarDeclaration v; s.fields)
-        {
-            if (v.type.hasInvariant())
-                return true;
-        }
-        return false;
+        sym.determineTypeProperties();
+        return sym.hasInvariant() || sym.hasFieldWithInvariant;
     }
 
     extern (D) MATCH implicitConvToWithoutAliasThis(Type to)
@@ -5599,7 +5599,7 @@ extern (C++) final class TypeStruct : Type
                      * allow the conversion.
                      */
                     uint offset = ~0; // dead-store to prevent spurious warning
-                    for (size_t i = 0; i < sym.fields.dim; i++)
+                    for (size_t i = 0; i < sym.fields.length; i++)
                     {
                         VarDeclaration v = sym.fields[i];
                         if (i == 0)
@@ -5857,6 +5857,11 @@ extern (C++) final class TypeEnum : Type
         return memType().hasVoidInitPointers();
     }
 
+    override bool hasSystemFields()
+    {
+        return memType().hasSystemFields();
+    }
+
     override bool hasInvariant()
     {
         return memType().hasInvariant();
@@ -6067,7 +6072,7 @@ extern (C++) final class TypeTuple : Type
         {
             if (arguments)
             {
-                for (size_t i = 0; i < arguments.dim; i++)
+                for (size_t i = 0; i < arguments.length; i++)
                 {
                     Parameter arg = (*arguments)[i];
                     assert(arg && arg.type);
@@ -6083,10 +6088,10 @@ extern (C++) final class TypeTuple : Type
     extern (D) this(Expressions* exps)
     {
         super(Ttuple);
-        auto arguments = new Parameters(exps ? exps.dim : 0);
+        auto arguments = new Parameters(exps ? exps.length : 0);
         if (exps)
         {
-            for (size_t i = 0; i < exps.dim; i++)
+            for (size_t i = 0; i < exps.length; i++)
             {
                 Expression e = (*exps)[i];
                 if (e.type.ty == Ttuple)
@@ -6164,9 +6169,9 @@ extern (C++) final class TypeTuple : Type
             return true;
         if (auto tt = t.isTypeTuple())
         {
-            if (arguments.dim == tt.arguments.dim)
+            if (arguments.length == tt.arguments.length)
             {
-                for (size_t i = 0; i < tt.arguments.dim; i++)
+                for (size_t i = 0; i < tt.arguments.length; i++)
                 {
                     const Parameter arg1 = (*arguments)[i];
                     Parameter arg2 = (*tt.arguments)[i];
@@ -6185,10 +6190,10 @@ extern (C++) final class TypeTuple : Type
             return MATCH.exact;
         if (auto tt = to.isTypeTuple())
         {
-            if (arguments.dim == tt.arguments.dim)
+            if (arguments.length == tt.arguments.length)
             {
                 MATCH m = MATCH.exact;
-                for (size_t i = 0; i < tt.arguments.dim; i++)
+                for (size_t i = 0; i < tt.arguments.length; i++)
                 {
                     Parameter arg1 = (*arguments)[i];
                     Parameter arg2 = (*tt.arguments)[i];
@@ -6590,8 +6595,8 @@ extern (C++) final class Parameter : ASTNode
         Parameters* params = null;
         if (parameters)
         {
-            params = new Parameters(parameters.dim);
-            for (size_t i = 0; i < params.dim; i++)
+            params = new Parameters(parameters.length);
+            for (size_t i = 0; i < params.length; i++)
                 (*params)[i] = (*parameters)[i].syntaxCopy();
         }
         return params;

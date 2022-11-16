@@ -583,8 +583,14 @@ extern (C++) struct Target
             }
             break;
 
-        case EXP.lessThan, EXP.greaterThan, EXP.lessOrEqual, EXP.greaterOrEqual, EXP.equal, EXP.notEqual, EXP.identity, EXP.notIdentity:
+        case EXP.identity, EXP.notIdentity:
             supported = false;
+            break;
+
+        case EXP.lessThan, EXP.greaterThan, EXP.lessOrEqual, EXP.greaterOrEqual:
+        case EXP.equal:
+        case EXP.notEqual:
+            supported = true;
             break;
 
         case EXP.leftShift, EXP.leftShiftAssign, EXP.rightShift, EXP.rightShiftAssign, EXP.unsignedRightShift, EXP.unsignedRightShiftAssign:
@@ -787,7 +793,7 @@ extern (C++) struct Target
                     return true;
                 if (!sd.isPOD() || sz > 8)
                     return true;
-                if (sd.fields.dim == 0)
+                if (sd.fields.length == 0)
                     return true;
             }
             if (sz <= 16 && !(sz & (sz - 1)))
@@ -809,7 +815,7 @@ extern (C++) struct Target
             if (!tt)
                 return false; // void
             else
-                return !tt.arguments.dim;
+                return !tt.arguments.length;
         }
 
     Lagain:

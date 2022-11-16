@@ -910,7 +910,7 @@ static if (1)
                 err_nomem();
             memcpy(name, getSymName(sfunc), len);
             memcpy(name + len, ".eh".ptr, 3 + 1);
-            fdesym = symbol_name(name, SC.global, tspvoid);
+            fdesym = symbol_name(name[0 .. len + 3], SC.global, tspvoid);
             Obj.pubdef(dfseg, fdesym, startsize);
             symbol_keep(fdesym);
             free(name);
@@ -2639,7 +2639,8 @@ static if (1)
                 if (!functypebuf)
                 {
                     functypebuf = cast(OutBuffer*) calloc(1, OutBuffer.sizeof);
-                    assert(functypebuf);
+                    if (!functypebuf)
+                        err_nomem();
                 }
                 uint functypebufidx = cast(uint)functypebuf.length();
                 functypebuf.write(tmpbuf.buf, cast(uint)tmpbuf.length());
@@ -3235,17 +3236,18 @@ static if (1)
         if (config.objfmt == OBJ_MACH)
         {
             char[16 + (except_table_num).sizeof * 3 + 1] name = void;
-            sprintf(name.ptr, "GCC_except_table%d", ++except_table_num);
+            const length = sprintf(name.ptr, "GCC_except_table%d", ++except_table_num);
             type *t = tspvoid;
             t.Tcount++;
             type_setmangle(&t, mTYman_sys);         // no leading '_' for mangled name
-            Symbol *s = symbol_name(name.ptr, SC.static_, t);
+            Symbol *s = symbol_name(name[0 .. length], SC.static_, t);
             Obj.pubdef(seg, s, cast(uint)buf.length());
             symbol_keep(s);
 
             sfunc.Sfunc.LSDAsym = s;
         }
-        genDwarfEh(sfunc, seg, buf, (usednteh & EHcleanup) != 0, startoffset, retoffset);
+        import dmd.backend.dwarfeh : dwehtable;
+        genDwarfEh(sfunc, seg, buf, (usednteh & EHcleanup) != 0, startoffset, retoffset, dwehtable);
     }
 
 }

@@ -261,7 +261,7 @@ private void obj_write_deferred(ref OutBuffer objbuf, Library library, ref Dsymb
         //printf("writing '%s'\n", fname);
         obj_end(objbuf, library, fname);
     }
-    glue.obj_symbols_towrite.dim = 0;
+    glue.obj_symbols_towrite.length = 0;
 }
 
 
@@ -513,10 +513,10 @@ private void genObjFile(Module m, bool multiobj)
 
         outdata(m.cov);
 
-        m.covb = cast(uint *)calloc((m.numlines + 32) / 32, (*m.covb).sizeof);
+        m.covb = cast(uint *)Mem.check(calloc((m.numlines + 32) / 32, (*m.covb).sizeof));
     }
 
-    for (int i = 0; i < m.members.dim; i++)
+    for (int i = 0; i < m.members.length; i++)
     {
         auto member = (*m.members)[i];
         //printf("toObjFile %s %s\n", member.kind(), member.toChars());
@@ -583,8 +583,8 @@ private void genObjFile(Module m, bool multiobj)
     }
 
     // If coverage / static constructor / destructor / unittest calls
-    if (glue.eictor || glue.sctors.dim || glue.ectorgates.dim || glue.sdtors.dim ||
-        glue.ssharedctors.dim || glue.esharedctorgates.dim || glue.sshareddtors.dim || glue.stests.dim)
+    if (glue.eictor || glue.sctors.length || glue.ectorgates.length || glue.sdtors.length ||
+        glue.ssharedctors.length || glue.esharedctorgates.length || glue.sshareddtors.length || glue.stests.length)
     {
         if (glue.eictor)
         {
@@ -691,7 +691,7 @@ void FuncDeclaration_toObjFile(FuncDeclaration fd, bool multiobj)
         return;
 
     if (multiobj && !fd.isStaticDtorDeclaration() && !fd.isStaticCtorDeclaration()
-        && !(fd.flags & (FUNCFLAG.CRTCtor | FUNCFLAG.CRTDtor)))
+        && !(fd.isCrtCtor || fd.isCrtDtor))
     {
         obj_append(fd);
         return;
@@ -868,9 +868,9 @@ void FuncDeclaration_toObjFile(FuncDeclaration fd, bool multiobj)
             sprintf(hiddenparam.ptr, "__HID%u", ++hiddenparami);
             name = hiddenparam.ptr;
         }
-        shidden = symbol_name(name, SC.parameter, thidden);
+        shidden = symbol_name(name[0 .. strlen(name)], SC.parameter, thidden);
         shidden.Sflags |= SFLtrue | SFLfree;
-        if (fd.isNRVO() && fd.nrvo_var && fd.nrvo_var.nestedrefs.dim)
+        if (fd.isNRVO() && fd.nrvo_var && fd.nrvo_var.nestedrefs.length)
             type_setcv(&shidden.Stype, shidden.Stype.Tty | mTYvolatile);
         irs.shidden = shidden;
         fd.shidden = shidden;
@@ -880,7 +880,7 @@ void FuncDeclaration_toObjFile(FuncDeclaration fd, bool multiobj)
         // Register return style cannot make nrvo.
         // Auto functions keep the NRVO flag up to here,
         // so we should eliminate it before entering backend.
-        fd.flags &= ~FUNCFLAG.NRVO;
+        fd.isNRVO = false;
     }
 
     if (fd.vthis)
@@ -896,7 +896,7 @@ void FuncDeclaration_toObjFile(FuncDeclaration fd, bool multiobj)
     // Estimate number of parameters, pi
     size_t pi = (fd.v_arguments !is null);
     if (fd.parameters)
-        pi += fd.parameters.dim;
+        pi += fd.parameters.length;
     if (fd.objc.selector)
         pi++; // Extra argument for Objective-C selector
     // Create a temporary buffer, params[], to hold function parameters
@@ -922,7 +922,7 @@ void FuncDeclaration_toObjFile(FuncDeclaration fd, bool multiobj)
             assert(!v.csym);
             params[pi + i] = toSymbol(v);
         }
-        pi += fd.parameters.dim;
+        pi += fd.parameters.length;
     }
 
     if (reverse)
@@ -1193,10 +1193,10 @@ void FuncDeclaration_toObjFile(FuncDeclaration fd, bool multiobj)
     if (fd.isExport())
         objmod.export_symbol(s, cast(uint)Para.offset);
 
-    if (fd.flags & FUNCFLAG.CRTCtor)
+    if (fd.isCrtCtor)
         objmod.setModuleCtorDtor(s, true);
 
-    if (fd.flags & FUNCFLAG.CRTDtor)
+    if (fd.isCrtDtor)
     {
         //See TargetC.initialize
         if(target.c.crtDestructorsSupported)
@@ -1222,12 +1222,11 @@ void FuncDeclaration_toObjFile(FuncDeclaration fd, bool multiobj)
                 platform it, if needed.
             */
             __gshared uint nthDestructor = 0;
-            char* buf = cast(char*) calloc(50, 1);
-            assert(buf);
+            char* buf = cast(char*) Mem.check(calloc(50, 1));
             const ret = snprintf(buf, 100, "_dmd_crt_destructor_thunk.%u", nthDestructor++);
             assert(ret >= 0 && ret < 100, "snprintf either failed or overran buffer");
             //Function symbol
-            auto newConstructor = symbol_calloc(buf);
+            auto newConstructor = symbol_calloc(buf[0 .. strlen(buf)]);
             //Build type
             newConstructor.Stype = type_function(TYnfunc, [], false, type_alloc(TYvoid));
             //Tell it it's supposed to be a C function. Does it do anything? Not sure.

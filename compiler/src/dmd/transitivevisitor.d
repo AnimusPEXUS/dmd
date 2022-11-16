@@ -617,7 +617,7 @@ package mixin template ParseVisitMethods(AST)
     void visitBaseClasses(AST.ClassDeclaration d)
     {
         //printf("Visiting ClassDeclaration\n");
-        if (!d || !d.baseclasses.dim)
+        if (!d || !d.baseclasses.length)
             return;
         foreach (b; *d.baseclasses)
             visitType(b.type);
@@ -626,7 +626,7 @@ package mixin template ParseVisitMethods(AST)
     bool visitEponymousMember(AST.TemplateDeclaration d)
     {
         //printf("Visiting EponymousMember\n");
-        if (!d.members || d.members.dim != 1)
+        if (!d.members || d.members.length != 1)
             return false;
         AST.Dsymbol onemember = (*d.members)[0];
         if (onemember.ident != d.ident)
@@ -688,7 +688,7 @@ package mixin template ParseVisitMethods(AST)
 
     void visitTemplateParameters(AST.TemplateParameters* parameters)
     {
-        if (!parameters || !parameters.dim)
+        if (!parameters || !parameters.length)
             return;
         foreach (p; *parameters)
             p.accept(this);
@@ -781,9 +781,27 @@ package mixin template ParseVisitMethods(AST)
             s.accept(this);
     }
 
+    override void visit(AST.UnionDeclaration d)
+    {
+        //printf("Visiting UnionDeclaration\n");
+        if (!d.members)
+            return;
+        foreach (s; *d.members)
+            s.accept(this);
+    }
+
     override void visit(AST.ClassDeclaration d)
     {
         //printf("Visiting ClassDeclaration\n");
+        visitBaseClasses(d);
+        if (d.members)
+            foreach (s; *d.members)
+                s.accept(this);
+    }
+
+    override void visit(AST.InterfaceDeclaration d)
+    {
+        //printf("Visiting InterfaceDeclaration\n");
         visitBaseClasses(d);
         if (d.members)
             foreach (s; *d.members)
@@ -1024,7 +1042,7 @@ package mixin template ParseVisitMethods(AST)
         visitType(e.targ);
         if (e.tspec)
             visitType(e.tspec);
-        if (e.parameters && e.parameters.dim)
+        if (e.parameters && e.parameters.length)
             visitTemplateParameters(e.parameters);
     }
 

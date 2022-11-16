@@ -92,7 +92,7 @@ Symbol *toSymbolX(Dsymbol ds, const(char)* prefix, SC sclass, type *t, const(cha
         cast(int)suffixlen, suffix);
     assert(cast(uint)nwritten < idlen);         // nwritten does not include the terminating 0 char
 
-    Symbol *s = symbol_name(id, nwritten, sclass, t);
+    Symbol *s = symbol_name(id[0 .. nwritten], sclass, t);
 
     //printf("-Dsymbol::toSymbolX() %s\n", id);
     return s;
@@ -137,7 +137,7 @@ Symbol *toSymbol(Dsymbol s)
             if (vd.isDataseg())
             {
                 mangleToBuffer(vd, &buf);
-                id = buf.peekChars()[0..buf.length]; // symbol_calloc needs zero termination
+                id = buf[];
             }
             else
             {
@@ -147,17 +147,19 @@ Symbol *toSymbol(Dsymbol s)
                     {
                         buf.writestring("__nrvo_");
                         buf.writestring(id);
-                        id = buf.peekChars()[0..buf.length]; // symbol_calloc needs zero termination
+                        id = buf[];
                         isNRVO = true;
                     }
                 }
             }
-            Symbol *s = symbol_calloc(id.ptr, cast(uint)id.length);
+            Symbol *s = symbol_calloc(id);
             s.Salignment = vd.alignment.isDefault() ? -1 : vd.alignment.get();
             if (vd.storage_class & STC.temp)
                 s.Sflags |= SFLartifical;
             if (isNRVO)
                 s.Sflags |= SFLnodebug;
+            if (vd.adFlags & Declaration.nounderscore)
+                s.Sflags |= SFLnounderscore;
 
             TYPE *t;
             if (vd.storage_class & (STC.out_ | STC.ref_))
@@ -258,7 +260,7 @@ Symbol *toSymbol(Dsymbol s)
                 s.Sclass = SC.auto_;
                 s.Sfl = FLauto;
 
-                if (vd.nestedrefs.dim)
+                if (vd.nestedrefs.length)
                 {
                     /* Symbol is accessed by a nested function. Make sure
                      * it is not put in a register, and that the optimizer
@@ -336,7 +338,7 @@ Symbol *toSymbol(Dsymbol s)
             //printf("FuncDeclaration.toSymbol(%s %s)\n", fd.kind(), fd.toChars());
             //printf("\tid = '%s'\n", id);
             //printf("\ttype = %s\n", fd.type.toChars());
-            auto s = symbol_calloc(id, cast(uint)strlen(id));
+            auto s = symbol_calloc(id[0 .. strlen(id)]);
 
             s.prettyIdent = fd.toPrettyChars(true);
 
@@ -371,7 +373,7 @@ Symbol *toSymbol(Dsymbol s)
                     f.Fflags |= Finline;    // inline this function if possible
             }
 
-            if (fd.type.toBasetype().isTypeFunction().nextOf().isTypeNoreturn() || fd.flags & FUNCFLAG.noreturn)
+            if (fd.type.toBasetype().isTypeFunction().nextOf().isTypeNoreturn() || fd.noreturn)
                 s.Sflags |= SFLexit;    // the function never returns
 
             f.Fstartline = toSrcpos(fd.loc);
@@ -394,6 +396,9 @@ Symbol *toSymbol(Dsymbol s)
                         break;
 
                     case LINK.c:
+                        if (fd.adFlags & Declaration.nounderscore)
+                            s.Sflags |= SFLnounderscore;
+                        goto case;
                     case LINK.objc:
                         t.Tmangle = mTYman_c;
                         break;
@@ -521,7 +526,7 @@ Symbol *toImport(Symbol *sym, Loc loc)
     t.Tnext.Tcount++;
     t.Tmangle = mTYman_c;
     t.Tcount++;
-    auto s = symbol_calloc(id, idlen);
+    auto s = symbol_calloc(id[0 .. idlen]);
     s.Stype = t;
     s.Sclass = SC.extern_;
     s.Sfl = FLextern;
@@ -561,8 +566,8 @@ Symbol *toThunkSymbol(FuncDeclaration fd, int offset)
     __gshared int tmpnum;
     char[6 + tmpnum.sizeof * 3 + 1] name = void;
 
-    sprintf(name.ptr,"_THUNK%d",tmpnum++);
-    auto sthunk = symbol_name(name.ptr,SC.static_,fd.csym.Stype);
+    const len = sprintf(name.ptr,"_THUNK%d",tmpnum++);
+    auto sthunk = symbol_name(name[0 .. len],SC.static_,fd.csym.Stype);
     sthunk.Sflags |= SFLnodebug | SFLartifical;
     sthunk.Sflags |= SFLimplem;
     outthunk(sthunk, fd.csym, 0, TYnptr, -offset, -1, 0);
@@ -707,7 +712,7 @@ Symbol *aaGetSymbol(TypeAArray taa, const(char)* func, int flags)
 
     // Create new Symbol
 
-    auto s = symbol_calloc(id, idlen);
+    auto s = symbol_calloc(id[0 .. idlen]);
     s.Sclass = SC.extern_;
     s.Ssymnum = SYMIDX.max;
     symbol_func(s);
@@ -731,7 +736,7 @@ Symbol* toSymbol(StructLiteralExp sle)
         return sle.sym;
     auto t = type_alloc(TYint);
     t.Tcount++;
-    auto s = symbol_calloc("internal", 8);
+    auto s = symbol_calloc("internal");
     s.Sclass = SC.static_;
     s.Sfl = FLextern;
     s.Sflags |= SFLnodebug;
@@ -751,7 +756,7 @@ Symbol* toSymbol(ClassReferenceExp cre)
         return cre.value.origin.sym;
     auto t = type_alloc(TYint);
     t.Tcount++;
-    auto s = symbol_calloc("internal", 8);
+    auto s = symbol_calloc("internal");
     s.Sclass = SC.static_;
     s.Sfl = FLextern;
     s.Sflags |= SFLnodebug;
@@ -806,7 +811,7 @@ Symbol* toSymbolCpp(ClassDeclaration cd)
 Symbol *toSymbolCppTypeInfo(ClassDeclaration cd)
 {
     const id = target.cpp.typeInfoMangle(cd);
-    auto s = symbol_calloc(id, cast(uint)strlen(id));
+    auto s = symbol_calloc(id[0 .. strlen(id)]);
     s.Sclass = SC.extern_;
     s.Sfl = FLextern;          // C++ code will provide the definition
     s.Sflags |= SFLnodebug;

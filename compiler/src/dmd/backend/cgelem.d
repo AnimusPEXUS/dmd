@@ -1327,7 +1327,7 @@ private elem * elmin(elem *e, goal_t goal)
         __gshared Symbol *hdiff;
         if (!hdiff)
         {
-            Symbol *s = symbol_calloc(LARGECODE ? "_aFahdiff".ptr : "_aNahdiff".ptr);
+            Symbol *s = symbol_calloc(LARGECODE ? "_aFahdiff" : "_aNahdiff");
             s.Stype = tsclib;
             s.Sclass = SC.extern_;
             s.Sfl = FLfunc;
@@ -3218,6 +3218,7 @@ private elem * elbit(elem *e, goal_t goal)
     targ_ullong m = (cast(targ_ullong)1 << w) - 1;   // mask w bits wide
     uint b = wb & 0xFF;                      // bits to right of field
     uint c = 0;
+    //printf("w %u + b %u <= sz %u\n", w, b, sz);
     assert(w + b <= sz);
 
     if (tyuns(tym1))                      // if uint bit field
@@ -4334,6 +4335,9 @@ private elem * elcmp(elem *e, goal_t goal)
     elem *e1 = e.EV.E1;
 
     //printf("elcmp(%p)\n",e); elem_print(e);
+
+    if (tyvector(e1.Ety))       // vectors don't give boolean result
+        return e;
 
     if (OPTIMIZER)
     {
@@ -6028,13 +6032,14 @@ beg:
               version (MARS) { enum MARS = true; } else { enum MARS = false; }
               if (
                 MARS ? (
-                cost(e2) > cost(e1)
+                cost(e2) > cost(e1) &&
+                !(tyvector(e1.Ety) && op == OPgt)
                 /* Swap only if order of evaluation can be proved
                  * to not matter, as we must evaluate Left-to-Right
                  */
                 && e1.canHappenAfter(e2)
                  )
-                 : cost(e2) > cost(e1)
+                 : cost(e2) > cost(e1) && !(tyvector(e1.Ety) && op == OPgt)
                  )
               {
                     e.EV.E1 = e2;

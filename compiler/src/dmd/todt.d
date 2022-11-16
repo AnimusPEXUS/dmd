@@ -112,7 +112,7 @@ extern (C++) void Initializer_toDt(Initializer init, ref DtBuilder dtb, bool isC
             assert(length < ai.dim);
             auto dtb = DtBuilder(0);
             Initializer_toDt(ai.value[i], dtb, isCfile);
-            if (dts[length])
+            if (dts[length] && !ai.isCarray)
                 error(ai.loc, "duplicate initializations for index `%d`", length);
             dts[length] = dtb.finish();
             length++;
@@ -202,52 +202,9 @@ extern (C++) void Initializer_toDt(Initializer init, ref DtBuilder dtb, bool isC
 
     void visitC(CInitializer ci)
     {
-        //printf("CInitializer.toDt() (%s) %s\n", ci.type.toChars(), ci.toChars());
-
-        /* append all initializers to dtb
+        /* Should have been rewritten to Exp/Struct/ArrayInitializer by semantic()
          */
-        auto dil = ci.initializerList[];
-        size_t i = 0;
-
-        /* Support recursion to handle un-braced array initializers
-         * Params:
-         *    t = element type
-         *    dim = number of elements
-         */
-        void array(Type t, size_t dim)
-        {
-            //printf(" type %s i %d dim %d dil.length = %d\n", t.toChars(), cast(int)i, cast(int)dim, cast(int)dil.length);
-            auto tn = t.nextOf().toBasetype();
-            auto tnsa = tn.isTypeSArray();
-            const nelems = tnsa ? cast(size_t)tnsa.dim.toInteger() : 0;
-
-            foreach (j; 0 .. dim)
-            {
-                if (i == dil.length)
-                {
-                    if (j < dim)
-                    {   // Not enough initializers, fill in with 0
-                        const size = cast(uint)tn.size();
-                        dtb.nzeros(cast(uint)(size * (dim - j)));
-                    }
-                    break;
-                }
-                auto di = dil[i];
-                assert(!di.designatorList);
-                if (tnsa && di.initializer.isExpInitializer())
-                {
-                    // no braces enclosing array initializer, so recurse
-                    array(tnsa, nelems);
-                }
-                else
-                {
-                    ++i;
-                    Initializer_toDt(di.initializer, dtb, isCfile);
-                }
-            }
-        }
-
-        array(ci.type, cast(size_t)ci.type.isTypeSArray().dim.toInteger());
+        assert(0);
     }
 
     final switch (init.kind)
@@ -501,7 +458,7 @@ extern (C++) void Expression_toDt(Expression e, ref DtBuilder dtb)
         //printf("ArrayLiteralExp.toDt() '%s', type = %s\n", e.toChars(), e.type.toChars());
 
         auto dtbarray = DtBuilder(0);
-        foreach (i; 0 .. e.elements.dim)
+        foreach (i; 0 .. e.elements.length)
         {
             Expression_toDt(e[i], dtbarray);
         }
@@ -514,7 +471,7 @@ extern (C++) void Expression_toDt(Expression e, ref DtBuilder dtb)
                 break;
 
             case Tarray:
-                dtb.size(e.elements.dim);
+                dtb.size(e.elements.length);
                 goto case Tpointer;
 
             case Tpointer:
@@ -544,7 +501,7 @@ extern (C++) void Expression_toDt(Expression e, ref DtBuilder dtb)
     void visitStructLiteral(StructLiteralExp sle)
     {
         //printf("StructLiteralExp.toDt() %s, ctfe = %d\n", sle.toChars(), sle.ownedByCtfe);
-        assert(sle.sd.nonHiddenFields() <= sle.elements.dim);
+        assert(sle.sd.nonHiddenFields() <= sle.elements.length);
         membersToDt(sle.sd, dtb, sle.elements, 0, null, null);
     }
 
@@ -806,14 +763,14 @@ private void membersToDt(AggregateDeclaration ad, ref DtBuilder dtb,
             // Insert { base class }
             size_t index = 0;
             for (ClassDeclaration c = cdb.baseClass; c; c = c.baseClass)
-                index += c.fields.dim;
+                index += c.fields.length;
             membersToDt(cdb, dtb, elements, index, concreteType, null);
             offset = cdb.structsize;
         }
         else if (InterfaceDeclaration id = cd.isInterfaceDeclaration())
         {
             offset = (**ppb).offset;
-            if (id.vtblInterfaces.dim == 0 && genclassinfo)
+            if (id.vtblInterfaces.length == 0 && genclassinfo)
             {
                 BaseClass* b = **ppb;
                 //printf("  Interface %s, b = %p\n", id.toChars(), b);
@@ -872,8 +829,8 @@ private void membersToDt(AggregateDeclaration ad, ref DtBuilder dtb,
     // `offset` now is where the fields start
 
     assert(!elements ||
-           firstFieldIndex <= elements.dim &&
-           firstFieldIndex + ad.fields.dim <= elements.dim);
+           firstFieldIndex <= elements.length &&
+           firstFieldIndex + ad.fields.length <= elements.length);
 
     uint bitByteOffset = 0;     // byte offset of bit field
     uint bitOffset = 0;         // starting bit number
@@ -1138,7 +1095,7 @@ private void toDtElem(TypeSArray tsa, ref DtBuilder dtb, Expression e, bool isCt
             if (auto se = e.isStringExp())
                 len /= se.numberOfCodeUnits();
             else if (auto ae = e.isArrayLiteralExp())
-                len /= ae.elements.dim;
+                len /= ae.elements.length;
         }
 
         auto dtb2 = DtBuilder(0);
@@ -1170,7 +1127,7 @@ extern (C++) void ClassReferenceExp_toInstanceDt(ClassReferenceExp ce, ref DtBui
     // Put in the rest
     size_t firstFieldIndex = 0;
     for (ClassDeclaration c = cd.baseClass; c; c = c.baseClass)
-        firstFieldIndex += c.fields.dim;
+        firstFieldIndex += c.fields.length;
     membersToDt(cd, dtb, ce.value.elements, firstFieldIndex, cd, null);
 }
 
@@ -1649,7 +1606,7 @@ private extern (C++) class TypeInfoDtVisitor : Visitor
 
         auto tu = d.tinfo.isTypeTuple();
 
-        const dim = tu.arguments.dim;
+        const dim = tu.arguments.length;
         dtb.size(dim);                       // elements.length
 
         auto dtbargs = DtBuilder(0);

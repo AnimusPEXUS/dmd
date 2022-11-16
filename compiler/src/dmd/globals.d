@@ -160,15 +160,16 @@ extern (C++) struct Param
                                  // https://gist.github.com/andralex/e5405a5d773f07f73196c05f8339435a
                                  // https://digitalmars.com/d/archives/digitalmars/D/Binding_rvalues_to_ref_parameters_redux_325087.html
                                  // Implementation: https://github.com/dlang/dmd/pull/9817
-    bool noSharedAccess;         // read/write access to shared memory objects
+    FeatureState noSharedAccess; // read/write access to shared memory objects
     bool previewIn;              // `in` means `[ref] scope const`, accepts rvalues
     bool inclusiveInContracts;   // 'in' contracts of overridden methods must be a superset of parent contract
-    bool shortenedMethods;       // allow => in normal function declarations
+    bool shortenedMethods = true;       // allow => in normal function declarations
     bool fixImmutableConv;       // error on unsound immutable conversion - https://github.com/dlang/dmd/pull/14070
     bool fix16997 = true;        // fix integral promotions for unary + - ~ operators
                                  // https://issues.dlang.org/show_bug.cgi?id=16997
     FeatureState dtorFields;     // destruct fields of partially constructed objects
                                  // https://issues.dlang.org/show_bug.cgi?id=14246
+    FeatureState systemVariables; // limit access to variables marked @system from @safe code
 
     CHECKENABLE useInvariants  = CHECKENABLE._default;  // generate class invariant checks
     CHECKENABLE useIn          = CHECKENABLE._default;  // generate precondition checks
@@ -256,6 +257,7 @@ enum hdr_ext  = "di";       // for D 'header' import files
 enum json_ext = "json";     // for JSON files
 enum map_ext  = "map";      // for .map files
 enum c_ext    = "c";        // for C source files
+enum h_ext    = "h";        // for C header source files
 enum i_ext    = "i";        // for preprocessed C source file
 
 /**

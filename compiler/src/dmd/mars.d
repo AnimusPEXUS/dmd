@@ -255,7 +255,7 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
     {
         fatal();
     }
-    if (files.dim == 0)
+    if (files.length == 0)
     {
         if (params.jsonFieldFlags)
         {
@@ -286,7 +286,7 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
     Expression._init();
     Objc._init();
 
-    reconcileLinkRunLib(params, files.dim, target.obj_ext);
+    reconcileLinkRunLib(params, files.length, target.obj_ext);
     version(CRuntime_Microsoft)
     {
         import dmd.root.longdouble;
@@ -303,7 +303,7 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
         stdout.printPredefinedVersions();
         stdout.printGlobalConfigs();
     }
-    //printf("%d source files\n", cast(int) files.dim);
+    //printf("%d source files\n", cast(int) files.length);
 
     // Build import search path
 
@@ -345,7 +345,7 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
 
     // Parse files
     bool anydocfiles = false;
-    size_t filecount = modules.dim;
+    size_t filecount = modules.length;
     for (size_t filei = 0, modi = 0; filei < filecount; filei++, modi++)
     {
         Module m = modules[modi];
@@ -393,7 +393,7 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
         }
     }
 
-    if (anydocfiles && modules.dim && (driverParams.oneobj || params.objname))
+    if (anydocfiles && modules.length && (driverParams.oneobj || params.objname))
     {
         error(Loc.initial, "conflicting Ddoc and obj generation options");
         fatal();
@@ -442,9 +442,9 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
     //if (global.errors)
     //    fatal();
     Module.runDeferredSemantic();
-    if (Module.deferred.dim)
+    if (Module.deferred.length)
     {
-        for (size_t i = 0; i < Module.deferred.dim; i++)
+        for (size_t i = 0; i < Module.deferred.length; i++)
         {
             Dsymbol sd = Module.deferred[i];
             sd.error("unable to resolve forward reference in definition");
@@ -472,9 +472,9 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
     }
     if (includeImports)
     {
-        // Note: DO NOT USE foreach here because Module.amodules.dim can
+        // Note: DO NOT USE foreach here because Module.amodules.length can
         //       change on each iteration of the loop
-        for (size_t i = 0; i < compiledImports.dim; i++)
+        for (size_t i = 0; i < compiledImports.length; i++)
         {
             auto m = compiledImports[i];
             assert(m.isRoot);
@@ -510,7 +510,7 @@ private int tryMain(size_t argc, const(char)** argv, ref Param params)
     // So deps file generation should be moved after the inlining stage.
     if (OutBuffer* ob = params.moduleDeps.buffer)
     {
-        foreach (i; 1 .. modules[0].aimports.dim)
+        foreach (i; 1 .. modules[0].aimports.length)
             semantic3OnDependencies(modules[0].aimports[i]);
         Module.runDeferredSemantic3();
 
@@ -652,8 +652,8 @@ bool parseCommandlineAndConfig(size_t argc, const(char)** argv, ref Param params
     }
     if (const(char)* missingFile = responseExpand(arguments)) // expand response files
         error(Loc.initial, "cannot open response file '%s'", missingFile);
-    //for (size_t i = 0; i < arguments.dim; ++i) printf("arguments[%d] = '%s'\n", i, arguments[i]);
-    files.reserve(arguments.dim - 1);
+    //for (size_t i = 0; i < arguments.length; ++i) printf("arguments[%d] = '%s'\n", i, arguments[i]);
+    files.reserve(arguments.length - 1);
     // Set default values
     params.argv0 = arguments[0].toDString;
 
@@ -1204,6 +1204,9 @@ void addDefaultVersionIdentifiers(const ref Param params, const ref Target tgt)
 
     if (params.tracegc)
         VersionCondition.addPredefinedGlobalIdent("D_ProfileGC");
+
+    if (driverParams.optimize)
+        VersionCondition.addPredefinedGlobalIdent("D_Optimized");
 }
 
 /**
@@ -1536,12 +1539,12 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
 
     version (none)
     {
-        for (size_t i = 0; i < arguments.dim; i++)
+        for (size_t i = 0; i < arguments.length; i++)
         {
             printf("arguments[%d] = '%s'\n", i, arguments[i]);
         }
     }
-    for (size_t i = 1; i < arguments.dim; i++)
+    for (size_t i = 1; i < arguments.length; i++)
     {
         const(char)* p = arguments[i];
         const(char)[] arg = p.toDString();
@@ -1742,7 +1745,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             params.mixinOut.name = mem.xstrdup(tmp).toDString;
         }
         else if (arg == "-g") // https://dlang.org/dmd.html#switch-g
-            driverParams.symdebug = 1;
+            driverParams.symdebug = true;
         else if (startsWith(p + 1, "gdwarf")) // https://dlang.org/dmd.html#switch-gdwarf
         {
             if (driverParams.dwarf)
@@ -1750,7 +1753,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                 error("`-gdwarf=<version>` can only be provided once");
                 break;
             }
-            driverParams.symdebug = 1;
+            driverParams.symdebug = true;
 
             enum len = "-gdwarf=".length;
             // Parse:
@@ -1763,8 +1766,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
         }
         else if (arg == "-gf")
         {
-            if (!driverParams.symdebug)
-                driverParams.symdebug = 1;
+            driverParams.symdebug = true;
             driverParams.symdebugref = true;
         }
         else if (arg == "-gs")  // https://dlang.org/dmd.html#switch-gs
@@ -2097,14 +2099,13 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
             params.warnings = DiagnosticReporting.inform;
         else if (arg == "-O")   // https://dlang.org/dmd.html#switch-O
             driverParams.optimize = true;
+        else if (arg == "-o-")  // https://dlang.org/dmd.html#switch-o-
+            params.obj = false;
         else if (p[1] == 'o')
         {
             const(char)* path;
             switch (p[2])
             {
-            case '-':                       // https://dlang.org/dmd.html#switch-o-
-                params.obj = false;
-                break;
             case 'd':                       // https://dlang.org/dmd.html#switch-od
                 if (!p[3])
                     goto Lnoarg;
@@ -2521,6 +2522,7 @@ bool parseCommandLine(const ref Strings arguments, const size_t argc, ref Param 
                     FileName.equals(ext, mars_ext) == 0 &&
                     FileName.equals(ext, hdr_ext) == 0 &&
                     FileName.equals(ext, i_ext) == 0 &&
+                    FileName.equals(ext, h_ext) == 0 &&
                     FileName.equals(ext, c_ext) == 0)
                 {
                     error("-run must be followed by a source file, not '%s'", arguments[i + 1]);
@@ -2865,6 +2867,7 @@ Module createModule(const(char)* file, ref Strings libmodules, const ref Target 
     if (FileName.equals(ext, mars_ext) ||
         FileName.equals(ext, hdr_ext ) ||
         FileName.equals(ext, dd_ext  ) ||
+        FileName.equals(ext, h_ext   ) ||
         FileName.equals(ext, c_ext   ) ||
         FileName.equals(ext, i_ext   ))
     {
@@ -2910,7 +2913,7 @@ private
 Modules createModules(ref Strings files, ref Strings libmodules, const ref Target target)
 {
     Modules modules;
-    modules.reserve(files.dim);
+    modules.reserve(files.length);
     bool firstmodule = true;
     foreach(file; files)
     {

@@ -695,7 +695,7 @@ extern(D):
         case CppOperator.OpAssign:
             TemplateDeclaration td = ti.tempdecl.isTemplateDeclaration();
             assert(td);
-            assert(ti.tiargs.dim >= 1);
+            assert(ti.tiargs.length >= 1);
             TemplateParameter tp = (*td.parameters)[0];
             TemplateValueParameter tv = tp.isTemplateValueParameter();
             if (!tv || !tv.valType.isString())
@@ -749,7 +749,7 @@ extern(D):
             }
         }
         continue_template:
-        if (ti.tiargs.dim == 1)
+        if (ti.tiargs.length == 1)
         {
             buf.writestring(symName);
             return true;
@@ -911,9 +911,9 @@ extern(D):
         {
             if (auto ag = sym.isAggregateDeclaration())
             {
-                if (ag.mangleOverride)
+                if (ag.pMangleOverride)
                 {
-                    writeName(ag.mangleOverride.id);
+                    writeName(ag.pMangleOverride.id);
                     return;
                 }
             }
@@ -932,27 +932,27 @@ extern(D):
         bool needNamespaces;
         if (auto ag = ti.aliasdecl ? ti.aliasdecl.isAggregateDeclaration() : null)
         {
-            if (ag.mangleOverride)
+            if (ag.pMangleOverride)
             {
-                if (ag.mangleOverride.agg)
+                if (ag.pMangleOverride.agg)
                 {
-                    if (auto aggti = ag.mangleOverride.agg.isInstantiated())
+                    if (auto aggti = ag.pMangleOverride.agg.isInstantiated())
                         actualti = aggti;
                     else
                     {
-                        writeName(ag.mangleOverride.id);
+                        writeName(ag.pMangleOverride.id);
                         if (sym.parent && !sym.parent.needThis())
-                            for (auto ns = ag.mangleOverride.agg.toAlias().cppnamespace; ns !is null && ns.ident !is null; ns = ns.cppnamespace)
+                            for (auto ns = ag.pMangleOverride.agg.toAlias().cppnamespace; ns !is null && ns.ident !is null; ns = ns.cppnamespace)
                                 writeName(ns.ident);
                         return;
                     }
-                    id = ag.mangleOverride.id;
+                    id = ag.pMangleOverride.id;
                     symName = id.toString();
                     needNamespaces = true;
                 }
                 else
                 {
-                    writeName(ag.mangleOverride.id);
+                    writeName(ag.pMangleOverride.id);
                     for (auto ns = ti.toAlias().cppnamespace; ns !is null && ns.ident !is null; ns = ns.cppnamespace)
                         writeName(ns.ident);
                     return;
@@ -973,7 +973,7 @@ extern(D):
             is_dmc_template = true;
         }
         bool is_var_arg = false;
-        for (size_t i = firstTemplateArg; i < actualti.tiargs.dim; i++)
+        for (size_t i = firstTemplateArg; i < actualti.tiargs.length; i++)
         {
             RootObject o = (*actualti.tiargs)[i];
             TemplateParameter tp = null;
@@ -1250,7 +1250,7 @@ extern(D):
             rettype.accept(tmp);
             tmp.flags &= ~MANGLE_RETURN_TYPE;
         }
-        if (!type.parameterList.parameters || !type.parameterList.parameters.dim)
+        if (!type.parameterList.parameters || !type.parameterList.parameters.length)
         {
             if (type.parameterList.varargs == VarArg.variadic)
                 tmp.buf.writeByte('Z');
