@@ -81,7 +81,6 @@ import core.sys.posix.sys.time;
 }
 else version (WebAssembly)
 {
-    pragma(msg, "wasm time.d selected");
     import core.sys.webassembly.time;
 }
 
