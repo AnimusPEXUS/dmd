@@ -596,7 +596,7 @@ extern (C) void* _aaGetX(scope AA* paa, const TypeInfo_AssociativeArray ti,
  * Returns:
  *      pointer to value if present, null otherwise
  */
-extern (C) inout(void)* _aaGetRvalueX(inout AA aa, scope const TypeInfo keyti, const size_t valsz,
+extern (C) void* _aaGetRvalueX(AA aa, scope const TypeInfo keyti, const size_t valsz,
     scope const void* pkey)
 {
     return _aaInX(aa, keyti, pkey);
@@ -612,7 +612,7 @@ extern (C) inout(void)* _aaGetRvalueX(inout AA aa, scope const TypeInfo keyti, c
  * Returns:
  *      pointer to value if present, null otherwise
  */
-extern (C) inout(void)* _aaInX(inout AA aa, scope const TypeInfo keyti, scope const void* pkey)
+extern (C) void* _aaInX(AA aa, scope const TypeInfo keyti, scope const void* pkey)
 {
     if (aa.empty)
         return null;

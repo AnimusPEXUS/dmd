@@ -1044,6 +1044,7 @@ version (CoreUnittest)
     {
         debug: // tests CAS in-contract
 
+            version (WebAssembly) {} else
         pure nothrow unittest
         {
             import core.exception : AssertError;
@@ -1089,6 +1090,8 @@ version (CoreUnittest)
         assert(ptr is null);
     }
 
+    // TODO: WebAssembly has no threads
+    version (WebAssembly) {} else
     unittest
     {
         import core.thread;

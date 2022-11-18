@@ -11,6 +11,8 @@
 
 module core.thread.types;
 
+version (WebAssembly) {} else: // WASM has no support for threads yet
+
 /**
  * Represents the ID of a thread, as returned by $(D Thread.)$(LREF id).
  * The exact type varies from platform to platform.

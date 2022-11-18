@@ -14,7 +14,10 @@
 
 module core.stdc.tgmath;
 
+version (WebAssembly) {} else:
+
 import core.stdc.config;
+private import core.stdc.config;
 private static import core.stdc.math;
 private static import core.stdc.complex;
 

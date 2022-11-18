@@ -664,9 +664,14 @@ extern (C) void onArrayIndexError( size_t index = 0, size_t length = 0,
  */
 extern (C) void onFinalizeError( TypeInfo info, Throwable e, string file = __FILE__, size_t line = __LINE__ ) @trusted nothrow
 {
-    // This error is thrown during a garbage collection, so no allocation must occur while
-    //  generating this object. So we use a preallocated instance
-    throw staticError!FinalizeError(info, e, file, line);
+    version (WebAssembly) {
+        onAssertErrorMsg( file, line, e.msg );
+    } else
+    {
+        // This error is thrown during a garbage collection, so no allocation must occur while
+        //  generating this object. So we use a preallocated instance
+        throw staticError!FinalizeError(info, e, file, line);
+    }
 }
 
 version (D_BetterC)
@@ -722,9 +727,13 @@ else
  */
 extern (C) void onInvalidMemoryOperationError(void* pretend_sideffect = null) @trusted pure nothrow @nogc /* dmd @@@BUG11461@@@ */
 {
-    // The same restriction applies as for onOutOfMemoryError. The GC is in an
-    // undefined state, thus no allocation must occur while generating this object.
-    throw staticError!InvalidMemoryOperationError();
+    version (WebAssembly) {
+        assert(0, "Invalid memory operation" );
+    } else {
+        // The same restriction applies as for onOutOfMemoryError. The GC is in an
+        // undefined state, thus no allocation must occur while generating this object.
+        throw staticError!InvalidMemoryOperationError();
+    }
 }
 
 
@@ -755,9 +764,13 @@ extern (C) void onForkError( string file = __FILE__, size_t line = __LINE__ ) @t
  * Throws:
  *  $(LREF UnicodeException).
  */
-extern (C) void onUnicodeError( string msg, size_t idx, string file = __FILE__, size_t line = __LINE__ ) @safe pure
+extern (C) void onUnicodeError( string msg, size_t idx, string file = __FILE__, size_t line = __LINE__ ) @safe
 {
-    throw new UnicodeException( msg, idx, file, line );
+    version (WebAssembly) {
+        onAssertErrorMsg(file, line, msg); // TODO: what to do with idx? is it is already in msg?
+    } else {
+        throw new UnicodeException( msg, idx, file, line );
+    }
 }
 
 /***********************************

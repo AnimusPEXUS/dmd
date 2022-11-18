@@ -281,6 +281,7 @@ bool parse(const(char)[] optname, ref inout(char)[] str, ref float res, const(ch
 in { assert(str.length); }
 do
 {
+  import core.stdc.stdio : snprintf, sscanf;
     // % uint f %n \0
     char[1 + 10 + 1 + 2 + 1] fmt=void;
     // specify max-width

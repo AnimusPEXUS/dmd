@@ -12,6 +12,8 @@
 
 module core.thread.threadbase;
 
+version (WebAssembly) {} else: // WASM has no support for threads yet
+
 import core.thread.context;
 import core.thread.types;
 import core.time;

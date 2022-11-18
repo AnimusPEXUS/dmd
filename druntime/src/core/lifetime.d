@@ -1515,6 +1515,7 @@ version (CoreUnittest)
     }
 }
 
+version (WebAssembly) {} else
 // destruction of partially copied static array
 @system unittest
 {

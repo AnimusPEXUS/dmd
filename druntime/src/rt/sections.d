@@ -57,7 +57,9 @@ else version (CRuntime_Bionic)
     public import rt.sections_android;
 else version (CRuntime_UClibc)
     public import rt.sections_elf_shared;
-else
+else version (WebAssembly) {
+   public import rt.sections_wasm;
+} else
     static assert(0, "unimplemented");
 
 import rt.deh, rt.minfo;

@@ -2713,6 +2713,7 @@ class Exception : Throwable
     }
 }
 
+version (WebAssembly) {} else
 ///
 @safe unittest
 {
@@ -2796,6 +2797,7 @@ class Error : Throwable
     Throwable   bypassedException;
 }
 
+version (WebAssembly) {} else // WASM has no exception support yet
 ///
 @system unittest
 {
@@ -4088,7 +4090,7 @@ void destroy(bool initialize = true, T)(ref T obj) if (is(T == struct))
     assert(a.s == "A");
 }
 
-nothrow @safe @nogc unittest
+nothrow @nogc unittest
 {
     {
         struct A { string s = "A";  }
@@ -4104,7 +4106,7 @@ nothrow @safe @nogc unittest
         struct C
         {
             string s = "C";
-            ~this() nothrow @safe @nogc
+            ~this() nothrow @nogc
             {
                 destroyed ++;
             }
@@ -4114,7 +4116,7 @@ nothrow @safe @nogc unittest
         {
             C c;
             string s = "B";
-            ~this() nothrow @safe @nogc
+            ~this() nothrow @nogc
             {
                 destroyed ++;
             }
@@ -4356,7 +4358,7 @@ void destroy(bool initialize = true, T)(T obj) if (is(T == interface))
     }
 }
 
-nothrow @safe @nogc unittest
+nothrow @nogc unittest
 {
     {
         struct A { string s = "A";  }
@@ -4372,7 +4374,7 @@ nothrow @safe @nogc unittest
         struct C
         {
             string s = "C";
-            ~this() nothrow @safe @nogc
+            ~this() nothrow @nogc
             {
                 destroyed ++;
             }
@@ -4382,7 +4384,7 @@ nothrow @safe @nogc unittest
         {
             C c;
             string s = "B";
-            ~this() nothrow @safe @nogc
+            ~this() nothrow @nogc
             {
                 destroyed ++;
             }

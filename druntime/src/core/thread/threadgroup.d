@@ -11,6 +11,8 @@
 
 module core.thread.threadgroup;
 
+version (WebAssembly) {} else: // WASM has no support for threads yet
+
 import core.thread.osthread;
 
 

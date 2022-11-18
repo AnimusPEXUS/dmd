@@ -2459,6 +2459,7 @@ char[] mangleFunc(T:FT*, FT)(return scope const(char)[] fqn, return scope char[]
 
 private enum hasTypeBackRef = (int function(void**,void**)).mangleof[$-4 .. $] == "QdZi";
 
+version (WebAssembly) {} else
 @safe pure nothrow unittest
 {
     assert(mangleFunc!(int function(int))("a.b") == "_D1a1bFiZi");
@@ -2535,6 +2536,8 @@ else version (Darwin)
 else
     enum string cPrefix = "";
 
+// TODO: can this be removed?
+version (WebAssembly) {} else
 @safe pure nothrow unittest
 {
     immutable string[2][] table =
@@ -2683,6 +2686,7 @@ else
         else
             alias staticIota = Seq!(staticIota!(x - 1), x - 1);
     }
+
     foreach ( i, name; table )
     {
         auto r = demangle( name[0] );
@@ -2706,6 +2710,7 @@ else
     }
 }
 
+version (WebAssembly) {} else
 unittest
 {
     // https://issues.dlang.org/show_bug.cgi?id=18300
@@ -2721,6 +2726,7 @@ unittest
     }
 }
 
+version (WebAssembly) {} else
 unittest
 {
     // https://issues.dlang.org/show_bug.cgi?id=18300
@@ -2817,7 +2823,12 @@ extern (C) private
         import core.stdc.errno : errno;
 
         const err = errno;
-        real val = strtold(nptr.ptr, null);
+        version (WebAssembly) {
+            real val;
+            strtold(nptr.ptr, null, &val);
+        } else {
+            real val = strtold(nptr.ptr, null);
+        }
         snprintf(nptr.ptr, nptr.length, "%#Lg", val);
         errno = err;
     }

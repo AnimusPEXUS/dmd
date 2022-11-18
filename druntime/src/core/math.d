@@ -243,6 +243,12 @@ T toPrec(T:real)(real f)  { pragma(inline, false); return f; }
     {
         return fabs((lhs - rhs) / rhs) <= 1e-2 || fabs(lhs - rhs) <= 1e-5;
     }
+    // } else version (WebAssembly) {
+    //   // TODO: linker doesn't like the ldexpl version, complaining about signature mismatch.
+    //   real ldexp(real n, int exp) @safe pure nothrow {
+    //     return cast(real)stdc.ldexp(cast(double)n, exp);
+    //   }
+    // }
 
     enum real PIR = 0xc.90fdaa22168c235p-2;
     enum double PID = 0x1.921fb54442d18p+1;

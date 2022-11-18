@@ -39,3 +39,8 @@ else version (WASI)
     ///
     alias dchar wchar_t;
 }
+else version (WebAssembly)
+{
+    ///
+    alias dchar wchar_t;
+}

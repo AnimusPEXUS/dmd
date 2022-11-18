@@ -25,6 +25,11 @@ private
         import core.sys.posix.fcntl;
         import core.sys.posix.unistd;
     }
+    else version (WASI)
+    {
+        import core.sys.wasi.fcntl;
+        import core.sys.wasi.unistd;
+    }
     import core.stdc.config : c_long;
     import core.stdc.stdio;
     import core.stdc.stdlib;
@@ -354,6 +359,8 @@ string appendFN( string path, string name )
         const char sep = '\\';
     else version (Posix)
         const char sep = '/';
+    else version (WebAssembly)
+        const char sep = '/';
 
     auto dest = path;
 
@@ -466,6 +473,8 @@ FILE* openOrCreateFile(string name)
         alias fdopen = _fdopen;
     version (Posix)
         import core.sys.posix.stdio;
+    version (WASI)
+        import core.sys.wasi.stdio;
     return fdopen(fd, "r+b");
 }
 
@@ -493,7 +502,9 @@ void lockFile(int fd)
         // exclusively lock first byte
         LockFileEx(handle(fd), LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, &off);
     }
-    else
+    else version (WASI) {
+        // lockf(fd, F_LOCK, 0); // exclusive lock // TODO: wasi has no lockf
+    } else
         static assert(0, "unimplemented");
 }
 

@@ -15,10 +15,14 @@
 
 module core.stdc.time;
 
+version (WebAssembly) version = WASI_libc; // Always use the WASI libc for translating libc calls to wasi, see https://github.com/CraneStation/wasi-libc
+
 version (Posix)
     public import core.sys.posix.stdc.time;
 else version (Windows)
     public import core.sys.windows.stdc.time;
+else version (WASI_libc)
+    public import core.sys.wasi.stdc.time;
 else
     static assert(0, "unsupported system");
 

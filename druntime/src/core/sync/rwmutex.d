@@ -15,6 +15,7 @@
  */
 module core.sync.rwmutex;
 
+version (WebAssembly) {} else:
 
 public import core.sync.exception;
 import core.sync.condition;

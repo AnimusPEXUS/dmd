@@ -24,6 +24,8 @@ else version (TVOS)
 else version (WatchOS)
     version = Darwin;
 
+version (WebAssembly) version = WASI_libc; // Always use the WASI libc for translating libc calls to wasi, see https://github.com/CraneStation/wasi-libc
+
 private
 {
     import core.stdc.config;
@@ -364,6 +366,24 @@ else version (WASI)
         L_tmpnam     = 20
     }
 }
+ else version (WASI_libc)
+{
+    enum
+    {
+        ///
+        BUFSIZ       = 1024,
+        ///
+        EOF          = -1,
+        ///
+        FOPEN_MAX    = 1000,
+        ///
+        FILENAME_MAX = 4096,
+        ///
+        TMP_MAX      = 10000,
+        ///
+        L_tmpnam     = 20
+    }
+}
 else
 {
     static assert( false, "Unsupported platform" );
@@ -467,6 +487,20 @@ else version (CRuntime_Glibc)
     alias shared(_IO_FILE) FILE;
 }
 else version (WASI)
+{
+    union fpos_t
+    {
+        char[16] __opaque = 0;
+        double __align;
+    }
+    struct _IO_FILE;
+
+    ///
+    alias _IO_FILE _iobuf; // needed for phobos
+    ///
+    alias shared(_IO_FILE) FILE;
+}
+ else version (WASI_libc)
 {
     union fpos_t
     {
@@ -1156,6 +1190,24 @@ else version (CRuntime_UClibc)
     ///
     extern shared FILE* stderr;
 }
+ else version (WASI_libc)
+{
+    // needs tail const
+    extern shared FILE* stdin;
+    ///
+    extern shared FILE* stdout;
+    ///
+    extern shared FILE* stderr;
+    enum
+    {
+        ///
+        _IOFBF = 0,
+        ///
+        _IOLBF = 1,
+        ///
+        _IONBF = 2,
+    }
+}
 else version (WASI)
 {
     // needs tail const
@@ -1763,6 +1815,28 @@ else version (OpenBSD)
     int  snprintf(scope char* s, size_t n, scope const char* format, scope const ...);
     ///
     pragma(printf)
+    int  vsnprintf(scope char* s, size_t n, scope const char* format, va_list arg);
+}
+ else version (WASI_libc)
+{
+    // No unsafe pointer manipulation.
+    @trusted
+    {
+        ///
+        void rewind(FILE* stream);
+        ///
+        pure void clearerr(FILE* stream);
+        ///
+        pure int  feof(FILE* stream);
+        ///
+        pure int  ferror(FILE* stream);
+        ///
+        int  fileno(FILE *);
+    }
+
+    ///
+    int  snprintf(scope char* s, size_t n, scope const char* format, ...);
+    ///
     int  vsnprintf(scope char* s, size_t n, scope const char* format, va_list arg);
 }
 else version (DragonFlyBSD)

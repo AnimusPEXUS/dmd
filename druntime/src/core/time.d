@@ -79,6 +79,10 @@ else version (Posix)
 import core.sys.posix.time;
 import core.sys.posix.sys.time;
 }
+else version (WebAssembly)
+{
+import core.sys.wasi.core;
+}
 
 version (OSX)
     version = Darwin;
@@ -329,6 +333,12 @@ else version (Solaris) enum ClockType
     processCPUTime = 4,
     second = 6,
     threadCPUTime = 7,
+}
+else version (WebAssembly) enum ClockType
+{
+    normal = 0,
+    // processCPUTime = 4,
+    // threadCPUTime = 7
 }
 else
 {
@@ -2098,6 +2108,9 @@ struct MonoTimeImpl(ClockType clockType)
     {
         enum clockArg = _posixClock(clockType);
     }
+    else version (WebAssembly)
+    {
+    }
     else
         static assert(0, "Unsupported platform");
 
@@ -2162,6 +2175,24 @@ struct MonoTimeImpl(ClockType clockType)
             return MonoTimeImpl(convClockFreq(ts.tv_sec * 1_000_000_000L + ts.tv_nsec,
                                               1_000_000_000L,
                                               ticksPerSecond));
+        } else version (WebAssembly) {
+            enum maxLag = 0; // The amount of time that the implementation may wait additionally to coalesce with other events.
+          __wasi_clockid_t getClockId() {
+            with(ClockType) final switch (clockType) {
+                  case normal: return __WASI_CLOCK_MONOTONIC;
+                  // case processCPUTime: return __WASI_CLOCK_PROCESS_CPUTIME_ID;
+                  // case threadCPUTime: return __WASI_CLOCK_THREAD_CPUTIME_ID;
+              }
+          }
+          __wasi_timestamp_t time;
+          __wasi_clockid_t clockId = getClockId();
+          if (clock_time_get(clockId, maxLag, &time) != __WASI_ESUCCESS) {
+            import core.internal.abort : abort;
+            abort("Call to wasi_unstable.clock_time_get failed");
+          }
+          return MonoTimeImpl(convClockFreq(time,
+                                            1L,
+                                            ticksPerSecond));
         }
     }
 
@@ -2557,6 +2588,16 @@ extern(C) void _d_initMonoTime() @nogc nothrow
                 }
             }
         }
+    } else version (WebAssembly) {
+      foreach (i, typeStr; __traits(allMembers, ClockType))
+      {
+        mixin("enum type = ClockType."~typeStr~";");
+        __wasi_timestamp_t res;
+        import core.internal.abort;
+        if (__WASI_ESUCCESS != clock_res_get(type, &res))
+          abort("Failed to call clock_res_get with clock "~typeStr);
+        tps[i] = res;
+      }
     }
 }
 
@@ -2575,6 +2616,9 @@ unittest
 
     static bool clockSupported(ClockType c)
     {
+      version (WebAssembly) {
+        return true;
+      } else {
         // Skip unsupported clocks on older linux kernels, assume that only
         // CLOCK_MONOTONIC and CLOCK_REALTIME exist, as that is the lowest
         // common denominator supported by all versions of Linux pre-2.6.12.
@@ -2582,7 +2626,7 @@ unittest
             return c == ClockType.normal || c == ClockType.precise;
         else
             return c != ClockType.second; // second doesn't work with MonoTimeImpl
-
+        }
     }
 
     foreach (typeStr; __traits(allMembers, ClockType))
@@ -2854,6 +2898,14 @@ struct TickDuration
             }
             else
                 ticksPerSec = 1_000_000;
+        }
+        else version (WebAssembly) {
+            __wasi_timestamp_t resolution;
+            if (clock_res_get(__WASI_CLOCK_MONOTONIC, &resolution) != __WASI_ESUCCESS) {
+                import core.internal.abort : abort;
+                abort("Call to wasi_unstable.clock_res_get failed");
+            }
+            ticksPerSec = 1_000_000_000 / resolution;
         }
 
         if (ticksPerSec != 0)
@@ -3248,6 +3300,7 @@ struct TickDuration
         t2 /= 2.1;
         assert(t1 > t2);
 
+        version (WebAssembly) {} else
         _assertThrown!TimeException(t2 /= 0);
 
         foreach (T; AliasSeq!(const TickDuration, immutable TickDuration))
@@ -3328,6 +3381,7 @@ struct TickDuration
             assertApprox(t2 / 2.0, t1 - tol, t1 + tol);
             assert(t2 / 2.1 < t1);
 
+            version (WebAssembly) {} else
             _assertThrown!TimeException(t2 / 0);
         }
     }
@@ -3421,6 +3475,15 @@ struct TickDuration
                 return TickDuration(tv.tv_sec * TickDuration.ticksPerSec +
                                     tv.tv_usec * TickDuration.ticksPerSec / 1000 / 1000);
             }
+        } else version (WebAssembly)
+        {
+            enum maxLag = 0; // The amount of time that the implementation may wait additionally to coalesce with other events.
+            __wasi_timestamp_t time;
+            if (clock_time_get(__WASI_CLOCK_MONOTONIC, maxLag, &time) != __WASI_ESUCCESS) {
+                import core.internal.abort : abort;
+                abort("Call to wasi_unstable.clock_time_get failed");
+            }
+            return TickDuration(time);
         }
     }
 
@@ -3914,6 +3977,7 @@ version (CoreUnittest) void _assertThrown(T : Throwable = Exception, E)
     }
 }
 
+version (WebAssembly) {} else
 unittest
 {
 

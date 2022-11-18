@@ -142,6 +142,9 @@ version (CRuntime_Microsoft)
         }
     }
 }
+ else version (WebAssembly) {
+     void strtold(scope inout(char)* nptr, scope inout(char)** endptr, real* output);
+ }
 else
 {
     /// Added to Bionic since Lollipop.

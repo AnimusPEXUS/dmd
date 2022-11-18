@@ -12,6 +12,23 @@
 
 module core.thread.osthread;
 
+version (WebAssembly) {
+    // NOTE: This is defined in this file, but because we version the whole out and the gc
+    // relies on it we put it here. Really, it should go somewhere else entirely
+    /**
+     * Indicates whether an address has been marked by the GC.
+     */
+    enum IsMarked : int
+        {
+            no, /// Address is not marked.
+            yes, /// Address is marked.
+            unknown, /// Address is not managed by the GC.
+        }
+    extern (C) void thread_init() @nogc {}
+    extern (C) void thread_joinAll() {}
+    extern (C) void thread_term() @nogc {}
+} else:
+
 import core.thread.threadbase;
 import core.thread.context;
 import core.thread.types;
@@ -1627,6 +1644,10 @@ private extern (D) bool suspend( Thread t ) nothrow @nogc
             t.m_reg[14] = context.R14;
             t.m_reg[15] = context.R15;
         }
+        else version (WebAssembly)
+            {
+                // TODO: there is still the problem of getting pointers from the WASM stack onto the second fake step
+            }
         else
         {
             static assert(false, "Architecture not supported." );
@@ -2368,7 +2389,6 @@ version (DragonFlyBSD) unittest
     }
     thr.join();
 }
-
 
 ///////////////////////////////////////////////////////////////////////////////
 // lowlovel threading support

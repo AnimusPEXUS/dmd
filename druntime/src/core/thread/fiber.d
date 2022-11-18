@@ -11,6 +11,8 @@
 
 module core.thread.fiber;
 
+version (WebAssembly) {} else:
+
 import core.thread.osthread;
 import core.thread.threadgroup;
 import core.thread.types;

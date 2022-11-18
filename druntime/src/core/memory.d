@@ -219,6 +219,8 @@ private extern (C) void initialize() @system
         GetSystemInfo(&si);
         (cast() pageSize) = cast(size_t) si.dwPageSize;
     }
+    else version (WebAssembly)
+        (cast() pageSize) = 64 * 1024;
     else
         static assert(false, __FUNCTION__ ~ " is not implemented on this platform");
 }
@@ -918,6 +920,7 @@ extern(C):
         assert(!GC.inFinalizer);
     }
 
+    version (WebAssembly) {} else
     ///
     unittest
     {
@@ -1150,7 +1153,10 @@ extern (C) private @system @nogc nothrow
     ref int fakePureErrnoImpl()
     {
         import core.stdc.errno;
-        return errno();
+        version (WebAssembly)
+            return errno;
+        else
+            return errno();
     }
 }
 
