@@ -2085,7 +2085,7 @@ private bool functionParameters(const ref Loc loc, Scope* sc,
                  * Check arg to see if it matters.
                  */
                 VarDeclaration vPar = fd ? (fd.parameters ? (*fd.parameters)[i] : null) : null;
-                err |= checkParamArgumentEscape(sc, fd, p, vPar, cast(STC) pStc, arg, false, false);
+                err |= checkParamArgumentEscape(sc, fd, p.ident, vPar, cast(STC) pStc, arg, false, false);
             }
 
             // Turning heap allocations into stack allocations is dangerous without dip1000, since `scope` inference
@@ -4783,7 +4783,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                 tthis = ue.e1.type;
                 if (!(exp.f.type.ty == Tfunction && (cast(TypeFunction)exp.f.type).isScopeQual))
                 {
-                    if (checkParamArgumentEscape(sc, exp.f, null, null, STC.undefined_, ethis, false, false))
+                    if (checkParamArgumentEscape(sc, exp.f, Id.This, exp.f.vthis, STC.undefined_, ethis, false, false))
                         return setError();
                 }
             }
@@ -8473,6 +8473,7 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
                 }
 
                 semanticTypeInfo(sc, taa);
+                checkNewEscape(sc, exp.e2, false);
 
                 exp.type = taa.next;
                 break;
@@ -10365,9 +10366,13 @@ private extern (C++) final class ExpressionSemanticVisitor : Visitor
             return setError();
 
         exp.type = exp.e1.type;
+        auto assignElem = exp.e2;
         auto res = exp.reorderSettingAAElem(sc);
-        if (exp.op == EXP.concatenateElemAssign || exp.op == EXP.concatenateDcharAssign)
+        if (res != exp) // `AA[k] = v` rewrite was performed
+            checkNewEscape(sc, assignElem, false);
+        else if (exp.op == EXP.concatenateElemAssign || exp.op == EXP.concatenateDcharAssign)
             checkAssignEscape(sc, res, false, false);
+
         result = res;
 
         if ((exp.op == EXP.concatenateAssign || exp.op == EXP.concatenateElemAssign) &&

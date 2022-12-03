@@ -1276,6 +1276,25 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
         }
         else if (s)
         {
+            // @@@DEPRECATION 2.100.2
+            if (auto fd = s.isFuncDeclaration())
+            {
+                if (fd.overnext)
+                {
+                    deprecation(e.loc, "`__traits(getAttributes)` may only be used for individual functions, not overload sets such as: `%s`", fd.toChars());
+                    deprecationSupplemental(e.loc, "the result of `__traits(getOverloads)` may be used to select the desired function to extract attributes from");
+                }
+            }
+
+            // @@@DEPRECATION 2.100.2
+            if (auto td = s.isTemplateDeclaration())
+            {
+                if (td.overnext || td.funcroot)
+                {
+                    deprecation(e.loc, "`__traits(getAttributes)` may only be used for individual functions, not overload sets such as: `%s`", td.ident.toChars());
+                    deprecationSupplemental(e.loc, "the result of `__traits(getOverloads)` may be used to select the desired function to extract attributes from");
+                }
+            }
             if (s.isImport())
             {
                 s = s.isImport().mod;
@@ -1924,7 +1943,12 @@ Expression semanticTraits(TraitsExp e, Scope* sc)
             return ErrorExp.get();
         }
 
-        Type tb = t.baseElemOf();
+        // https://issues.dlang.org/show_bug.cgi?id=23534
+        //
+        // For enums, we need to get the enum initializer
+        // (the first enum member), not the initializer of the
+        // type of the enum members.
+        Type tb = t.isTypeEnum ? t : t.baseElemOf();
         return tb.isZeroInit(e.loc) ? True() : False();
     }
     if (e.ident == Id.getTargetInfo)
